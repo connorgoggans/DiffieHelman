@@ -147,9 +147,16 @@ def middle():
     data = client.recv(BUFFER_SIZE)
     hash = md5.new(str(client_attacker.key)).digest()
     obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
-    print(obj.decrypt(data))
+    plaintext = obj.decrypt(data)
+    print(plaintext)
 
-    server.send(data)
+    strings1 = ["is", "yes"]
+    strings2 = ["isn't", "no"]
+    for x in range(0, len(strings1)):
+        int ret = plaintext.replace(strings1[x], strings2[x])
+        if ret == 0:
+            plaintext.replace(strings2[x], strings1[x])
+    server.send(obj.encrypt(plaintext))
 
 
 if __name__ == "__main__":
