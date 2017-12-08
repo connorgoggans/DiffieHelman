@@ -5,7 +5,7 @@ from Crypto.Cipher import AES
 import md5
 
 primes = []
-MAX_PRIME = 100
+MAX_PRIME = 1000
 numbers = range(2, MAX_PRIME+1)
 isServer = False
 TCP_PORT = 5000
@@ -42,33 +42,31 @@ def client():
         primitiveRoots = primRoots(q)
     alpha = primitiveRoots[0]
 
-    # generate private key xa
+    # generate private key xa and public key ya
     xa = random.randint(1, q)
-
-    # generate public key ya
     ya = pow(alpha, xa) % q
 
     # set up socket
     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
     # connect
     soc.connect((TCP_ADDR, TCP_PORT))
+
     # send first message
     soc.send(str(alpha) + " " + str(q))
 
     # get response
     data = soc.recv(BUFFER_SIZE)
-    print("received " + data)
 
     # received b's public key
     yb = int(data)
 
     # send public key to b
-    print("sending: " + str(ya))
     soc.send(str(ya))
 
     # calculate key
     key = pow(yb, xa) % q
-    print(key)
+    print("key = " + str(key))
 
     hash = md5.new(str(key)).digest()
     obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
@@ -82,6 +80,7 @@ def client():
 def server():
     # set up socket
     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
     # connect
     soc.bind((TCP_ADDR, TCP_PORT))
     soc.listen(1)
@@ -90,31 +89,26 @@ def server():
 
     # receive alpha and q from a
     data = conn.recv(BUFFER_SIZE)
-    print("received " + data)
     
     # parse out alpha and q
     nums = data.split()
     alpha = int(nums[0])
     q = int(nums[1])
 
-    # generate private key xb
+    # generate private key xb and public key yb
     xb = random.randint(1, q)
-
-    # generate public key yb
     yb = pow(alpha, xb) % q
 
     # send public key to a
-    print("sending: " + str(yb))
     conn.send(str(yb))
 
     # receive a's public key
     data = conn.recv(BUFFER_SIZE)
-    print("received " + data)
     ya = int(data)
 
     # calculate key
     key = pow(ya, xb) % q
-    print(key)
+    print("key = " + str(key))
 
     data = conn.recv(BUFFER_SIZE)
 
@@ -133,12 +127,11 @@ if __name__ == "__main__":
     if(len(args) == 3 and args[2] == '-s'):
         isServer = True
 
-    # generate primes
-    generatePrimes()
-
     if(isServer):
         server()
     else:
+        # generate primes
+        generatePrimes()
         client()
     
 
