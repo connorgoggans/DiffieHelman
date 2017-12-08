@@ -10,7 +10,7 @@ numbers = range(2, MAX_PRIME+1)
 isServer = False
 isMiddle = False
 TCP_PORT_CLIENT = 5000
-TCP_PORT_SERVER = 3000
+TCP_PORT_SERVER = 5000
 BUFFER_SIZE = 1024
 
 # Calculate the greatest common demoninator of a & b
@@ -34,19 +34,61 @@ def generatePrimes():
             if i in numbers:
                 numbers.remove(i)
 
-def client():
-    # create alpha and q
-    secure_random = random.SystemRandom()
-    q = 0
-    primitiveRoots = []
-    while len(primitiveRoots) == 0:
-        q = secure_random.choice(primes)
-        primitiveRoots = primRoots(q)
-    alpha = primitiveRoots[0]
+class client_class:
+    soc = 0
+    key = 0
+    def __init__(self, in_soc):
+        soc = in_soc
+        # create alpha and q
+        secure_random = random.SystemRandom()
+        primitiveRoots = []
+        while len(primitiveRoots) == 0:
+            q = secure_random.choice(primes)
+            primitiveRoots = primRoots(q)
+        alpha = primitiveRoots[0]
+        # generate private key xa and public key ya
+        xa = random.randint(1, q)
+        ya = pow(alpha, xa) % q
+        # send first message
+        soc.send(str(alpha) + " " + str(q))
+        # get response
+        data = soc.recv(BUFFER_SIZE)
+        # received b's public key
+        yb = int(data)
+        # send public key to b
+        soc.send(str(ya))
+        # calculate key
+        key = pow(yb, xa) % q
+        
 
-    # generate private key xa and public key ya
-    xa = random.randint(1, q)
-    ya = pow(alpha, xa) % q
+class server_class:
+    soc = 0
+    key = 0
+    def __init__(self, in_soc):
+        soc = in_soc
+        # receive alpha and q from a
+        data = soc.recv(BUFFER_SIZE)
+    
+        # parse out alpha and q
+        nums = data.split()
+        alpha = int(nums[0])
+        q = int(nums[1])
+
+        # generate private key xb and public key yb
+        xb = random.randint(1, q)
+        yb = pow(alpha, xb) % q
+
+        # send public key to a
+        soc.send(str(yb))
+
+        # receive a's public key
+        data = soc.recv(BUFFER_SIZE)
+        ya = int(data)
+
+        # calculate key
+        key = pow(ya, xb) % q
+
+def client():
 
     # set up socket
     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -54,23 +96,9 @@ def client():
     # connect
     soc.connect((TCP_ADDR, TCP_PORT_CLIENT))
 
-    # send first message
-    soc.send(str(alpha) + " " + str(q))
+    client_obj = client_class(soc)
 
-    # get response
-    data = soc.recv(BUFFER_SIZE)
-
-    # received b's public key
-    yb = int(data)
-
-    # send public key to b
-    soc.send(str(ya))
-
-    # calculate key
-    key = pow(yb, xa) % q
-    print("key = " + str(key))
-
-    hash = md5.new(str(key)).digest()
+    hash = md5.new(str(client_obj.key)).digest()
     obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
     message = 'The answer is no'
     ciphertext = obj.encrypt(message)
@@ -89,32 +117,11 @@ def server():
 
     conn, addr = soc.accept()
 
-    # receive alpha and q from a
-    data = conn.recv(BUFFER_SIZE)
+    server_obj = server_class(conn)
     
-    # parse out alpha and q
-    nums = data.split()
-    alpha = int(nums[0])
-    q = int(nums[1])
-
-    # generate private key xb and public key yb
-    xb = random.randint(1, q)
-    yb = pow(alpha, xb) % q
-
-    # send public key to a
-    conn.send(str(yb))
-
-    # receive a's public key
-    data = conn.recv(BUFFER_SIZE)
-    ya = int(data)
-
-    # calculate key
-    key = pow(ya, xb) % q
-    print("key = " + str(key))
-
     data = conn.recv(BUFFER_SIZE)
 
-    hash = md5.new(str(key)).digest()
+    hash = md5.new(str(server_obj.key)).digest()
     obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
     print(obj.decrypt(data))
 
