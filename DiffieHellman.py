@@ -123,6 +123,7 @@ def server():
 
     hash = md5.new(str(server_obj.key)).digest()
     obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
+
     print(obj.decrypt(data))
 
     conn.close()
@@ -153,9 +154,12 @@ def middle():
     strings1 = ["is", "yes"]
     strings2 = ["isn't", "no"]
     for x in range(0, len(strings1)):
-        int ret = plaintext.replace(strings1[x], strings2[x])
+        ret = plaintext.replace(strings1[x], strings2[x])
         if ret == 0:
             plaintext.replace(strings2[x], strings1[x])
+    print(plaintext)
+    padding_len = 16 - len(plaintext) % 16
+    plaintext += '/0' * padding_len
     server.send(obj.encrypt(plaintext))
 
 
@@ -177,4 +181,4 @@ if __name__ == "__main__":
     else:
         # generate primes
         generatePrimes()
-        client()    
+        client()
