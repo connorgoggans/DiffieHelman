@@ -1,6 +1,8 @@
 import random
 import socket
 import sys
+from Crypto.Cipher import AES
+import md5
 
 primes = []
 MAX_PRIME = 100
@@ -68,6 +70,12 @@ def client():
     key = pow(yb, xa) % q
     print(key)
 
+    hash = md5.new(str(key)).digest()
+    obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
+    message = 'The answer is no'
+    ciphertext = obj.encrypt(message)
+
+    soc.send(ciphertext)
     # close
     soc.close()
 
@@ -107,6 +115,12 @@ def server():
     # calculate key
     key = pow(ya, xb) % q
     print(key)
+
+    data = conn.recv(BUFFER_SIZE)
+
+    hash = md5.new(str(key)).digest()
+    obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
+    print(obj.decrypt(data))
 
     conn.close()
 
