@@ -8,7 +8,9 @@ primes = []
 MAX_PRIME = 1000
 numbers = range(2, MAX_PRIME+1)
 isServer = False
-TCP_PORT = 5000
+isMiddle = False
+TCP_PORT_CLIENT = 5000
+TCP_PORT_SERVER = 3000
 BUFFER_SIZE = 1024
 
 # Calculate the greatest common demoninator of a & b
@@ -50,7 +52,7 @@ def client():
     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # connect
-    soc.connect((TCP_ADDR, TCP_PORT))
+    soc.connect((TCP_ADDR, TCP_PORT_CLIENT))
 
     # send first message
     soc.send(str(alpha) + " " + str(q))
@@ -82,7 +84,7 @@ def server():
     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # connect
-    soc.bind((TCP_ADDR, TCP_PORT))
+    soc.bind((TCP_ADDR, TCP_PORT_SERVER))
     soc.listen(1)
 
     conn, addr = soc.accept()
@@ -118,6 +120,22 @@ def server():
 
     conn.close()
 
+def middle():
+    soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # bind to client port
+    soc.bind((TCP_ADDR, TCP_PORT_CLIENT))
+
+    soc.listen(1)
+
+    client, addr = soc.accept()
+
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    server.connect((TCP_ADDR, TCP_PORT_SERVER))
+
+
+
 
 if __name__ == "__main__":
     # get input args, address will be arg 1
@@ -126,13 +144,14 @@ if __name__ == "__main__":
 
     if(len(args) == 3 and args[2] == '-s'):
         isServer = True
+    elif(len(args) == 3 and args[2] == '-m'):
+        isMiddle = True
 
     if(isServer):
         server()
+    elif(isMiddle):
+        middle()
     else:
         # generate primes
         generatePrimes()
-        client()
-    
-
-    
+        client()    
