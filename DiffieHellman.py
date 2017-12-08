@@ -1,6 +1,7 @@
 import random
 import socket
 import sys
+from math import gcd as bltin_gcd
 
 primes = []
 MAX_PRIME = 100
@@ -8,6 +9,11 @@ numbers = range(2, MAX_PRIME+1)
 isServer = False
 TCP_PORT = 5000
 BUFFER_SIZE = 1024
+
+def primRoots(modulo):
+    required_set = {num for num in range(1, modulo) if bltin_gcd(num, modulo) }
+    return [g for g in range(1, modulo) if required_set == {pow(g, powers, modulo)
+            for powers in range(1, modulo)}]
 
 # Use Sieve of Eratosthenes to generate primes up to MAX_PRIME
 def generatePrimes():
@@ -21,31 +27,41 @@ def generatePrimes():
 def client():
     # create two prime numbers
     secure_random = random.SystemRandom()
-    num1 = secure_random.choice(primes)
-    num2 = secure_random.choice(primes)
+    q = secure_random.choice(primes)
+    primitiveRoots = []
+    while primitiveRoots.len == 0:
+        primitiveRoots = primRoots(q)
+    alpha = primitiveRoots[0]
+    xa = random.randint(1, q)
+    public = pow(alpha, xa) % q
 
     # set up socket
     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # connect
     soc.connect((TCP_ADDR, TCP_PORT))
     # send first message
+    print("sending: " + str(num1) + " " + str(num2))
     soc.send(str(num1) + " " + str(num2))
 
     # get response
     data = soc.recv(BUFFER_SIZE)
+    print("received " + data)
 
     num3 = int(data)
     private_num = secure_random.randint(0, 100)
 
     res = pow(num1, private_num) % num2
 
+    print("sending: " + str(res))
     soc.send(str(res))
 
     data = soc.recv(BUFFER_SIZE)
+    print("received" + data)
 
     num3 = int(data)
 
     # final calculation
+    print("res = " + str(res))
     key = pow(num3, res) % num2
     print(key)
 
@@ -67,6 +83,7 @@ def server():
     private_num = secure_random.randint(0, 100)
 
     data = conn.recv(BUFFER_SIZE)
+    print("received " + data)
     
     # parse out primes
     nums = data.split()
@@ -77,14 +94,19 @@ def server():
     res = pow(num1, private_num) % num2
 
     # send back result
+    print("sending: " + str(res))
     conn.send(str(res))
 
     
     data = conn.recv(BUFFER_SIZE)
+    print("received " + data)
     num3 = int(data)
 
     # final calculation
     key = pow(num3, res) % num2
+    print("sending: " + str(key))
+    conn.send(str(key))
+
     print(key)
 
     conn.close()
