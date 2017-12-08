@@ -1,7 +1,6 @@
 import random
 import socket
 import sys
-from math import gcd as bltin_gcd
 
 primes = []
 MAX_PRIME = 100
@@ -10,8 +9,15 @@ isServer = False
 TCP_PORT = 5000
 BUFFER_SIZE = 1024
 
+# Calculate the greatest common demoninator of a & b
+def gcd(a,b):
+    while b != 0:
+        a, b = b, a % b
+    return a
+
+# returns a list of primitive roots of modulo
 def primRoots(modulo):
-    required_set = {num for num in range(1, modulo) if bltin_gcd(num, modulo) }
+    required_set = {num for num in range(1, modulo) if gcd(num, modulo) }
     return [g for g in range(1, modulo) if required_set == {pow(g, powers, modulo)
             for powers in range(1, modulo)}]
 
@@ -25,44 +31,41 @@ def generatePrimes():
                 numbers.remove(i)
 
 def client():
-    # create two prime numbers
+    # create alpha and q
     secure_random = random.SystemRandom()
-    q = secure_random.choice(primes)
+    q = 0
     primitiveRoots = []
-    while primitiveRoots.len == 0:
+    while len(primitiveRoots) == 0:
+        q = secure_random.choice(primes)
         primitiveRoots = primRoots(q)
     alpha = primitiveRoots[0]
+
+    # generate private key xa
     xa = random.randint(1, q)
-    public = pow(alpha, xa) % q
+
+    # generate public key ya
+    ya = pow(alpha, xa) % q
 
     # set up socket
     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # connect
     soc.connect((TCP_ADDR, TCP_PORT))
     # send first message
-    print("sending: " + str(num1) + " " + str(num2))
-    soc.send(str(num1) + " " + str(num2))
+    soc.send(str(alpha) + " " + str(q))
 
     # get response
     data = soc.recv(BUFFER_SIZE)
     print("received " + data)
 
-    num3 = int(data)
-    private_num = secure_random.randint(0, 100)
+    # received b's public key
+    yb = int(data)
 
-    res = pow(num1, private_num) % num2
+    # send public key to b
+    print("sending: " + str(ya))
+    soc.send(str(ya))
 
-    print("sending: " + str(res))
-    soc.send(str(res))
-
-    data = soc.recv(BUFFER_SIZE)
-    print("received" + data)
-
-    num3 = int(data)
-
-    # final calculation
-    print("res = " + str(res))
-    key = pow(num3, res) % num2
+    # calculate key
+    key = pow(yb, xa) % q
     print(key)
 
     # close
@@ -76,37 +79,33 @@ def server():
     soc.listen(1)
 
     conn, addr = soc.accept()
-    num1 = 0
-    num2 = 0
-    
-    secure_random = random.SystemRandom()
-    private_num = secure_random.randint(0, 100)
 
+    # receive alpha and q from a
     data = conn.recv(BUFFER_SIZE)
     print("received " + data)
     
-    # parse out primes
+    # parse out alpha and q
     nums = data.split()
-    num1 = int(nums[0])
-    num2 = int(nums[1])
+    alpha = int(nums[0])
+    q = int(nums[1])
 
-    # mod function
-    res = pow(num1, private_num) % num2
+    # generate private key xb
+    xb = random.randint(1, q)
 
-    # send back result
-    print("sending: " + str(res))
-    conn.send(str(res))
+    # generate public key yb
+    yb = pow(alpha, xb) % q
 
-    
+    # send public key to a
+    print("sending: " + str(yb))
+    conn.send(str(yb))
+
+    # receive a's public key
     data = conn.recv(BUFFER_SIZE)
     print("received " + data)
-    num3 = int(data)
+    ya = int(data)
 
-    # final calculation
-    key = pow(num3, res) % num2
-    print("sending: " + str(key))
-    conn.send(str(key))
-
+    # calculate key
+    key = pow(ya, xb) % q
     print(key)
 
     conn.close()
