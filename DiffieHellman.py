@@ -10,7 +10,7 @@ numbers = range(2, MAX_PRIME+1)
 isServer = False
 isMiddle = False
 TCP_PORT_CLIENT = 5000
-TCP_PORT_SERVER = 5000
+TCP_PORT_SERVER = 3000
 BUFFER_SIZE = 1024
 
 # Calculate the greatest common demoninator of a & b
@@ -141,7 +141,15 @@ def middle():
 
     server.connect((TCP_ADDR, TCP_PORT_SERVER))
 
+    server_attacker = client_class(server)
+    client_attacker = server_class(client)
 
+    data = client.recv(BUFFER_SIZE)
+    hash = md5.new(str(client_attacker.key)).digest()
+    obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
+    print(obj.decrypt(data))
+
+    server.send(data)
 
 
 if __name__ == "__main__":
@@ -157,6 +165,7 @@ if __name__ == "__main__":
     if(isServer):
         server()
     elif(isMiddle):
+        generatePrimes()
         middle()
     else:
         # generate primes
