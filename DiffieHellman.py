@@ -38,7 +38,7 @@ class client_class:
     soc = 0
     key = 0
     def __init__(self, in_soc):
-        soc = in_soc
+        self.soc = in_soc
         # create alpha and q
         secure_random = random.SystemRandom()
         primitiveRoots = []
@@ -50,24 +50,24 @@ class client_class:
         xa = random.randint(1, q)
         ya = pow(alpha, xa) % q
         # send first message
-        soc.send(str(alpha) + " " + str(q))
+        self.soc.send(str(alpha) + " " + str(q))
         # get response
-        data = soc.recv(BUFFER_SIZE)
+        data = self.soc.recv(BUFFER_SIZE)
         # received b's public key
         yb = int(data)
         # send public key to b
-        soc.send(str(ya))
+        self.soc.send(str(ya))
         # calculate key
-        key = pow(yb, xa) % q
+        self.key = pow(yb, xa) % q
         
 
 class server_class:
     soc = 0
     key = 0
     def __init__(self, in_soc):
-        soc = in_soc
+        self.soc = in_soc
         # receive alpha and q from a
-        data = soc.recv(BUFFER_SIZE)
+        data = self.soc.recv(BUFFER_SIZE)
     
         # parse out alpha and q
         nums = data.split()
@@ -79,14 +79,14 @@ class server_class:
         yb = pow(alpha, xb) % q
 
         # send public key to a
-        soc.send(str(yb))
+        self.soc.send(str(yb))
 
         # receive a's public key
-        data = soc.recv(BUFFER_SIZE)
+        data = self.soc.recv(BUFFER_SIZE)
         ya = int(data)
 
         # calculate key
-        key = pow(ya, xb) % q
+        self.key = pow(ya, xb) % q
 
 def client():
 
@@ -99,11 +99,17 @@ def client():
     client_obj = client_class(soc)
 
     hash = md5.new(str(client_obj.key)).digest()
+    print 'client key: ', client_obj.key
     obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
-    message = 'The answer is no'
-    ciphertext = obj.encrypt(message)
 
-    soc.send(ciphertext)
+    # start sending messages
+    message = raw_input("Message: ")
+    while message != "quit":
+        ciphertext = obj.encrypt(padMessage(message))
+        soc.send(ciphertext)
+        message = raw_input("Message: ")
+
+    
     # close
     soc.close()
 
@@ -118,13 +124,15 @@ def server():
     conn, addr = soc.accept()
 
     server_obj = server_class(conn)
-    
-    data = conn.recv(BUFFER_SIZE)
 
     hash = md5.new(str(server_obj.key)).digest()
+    print "server key: ", server_obj.key
     obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
 
-    print(obj.decrypt(data))
+    data = conn.recv(BUFFER_SIZE)
+    while data:
+        print(obj.decrypt(data))
+        data = conn.recv(BUFFER_SIZE)
 
     conn.close()
 
@@ -145,22 +153,38 @@ def middle():
     server_attacker = client_class(server)
     client_attacker = server_class(client)
 
-    data = client.recv(BUFFER_SIZE)
-    hash = md5.new(str(client_attacker.key)).digest()
-    obj = AES.new(hash, AES.MODE_CBC, 'This is an IV456')
-    plaintext = obj.decrypt(data)
-    print(plaintext)
+    # start sending/receiving encrypted messages
 
-    strings1 = ["is", "yes"]
-    strings2 = ["isn't", "no"]
-    for x in range(0, len(strings1)):
-        ret = plaintext.replace(strings1[x], strings2[x])
-        if ret == 0:
-            plaintext.replace(strings2[x], strings1[x])
-    print(plaintext)
-    padding_len = 16 - len(plaintext) % 16
-    plaintext += '/0' * padding_len
-    server.send(obj.encrypt(plaintext))
+    server_hash = md5.new(str(server_attacker.key)).digest()
+    print "server key: ", server_attacker.key
+    client_hash = md5.new(str(client_attacker.key)).digest()
+    print "client key: ", client_attacker.key
+    client_obj = AES.new(client_hash, AES.MODE_CBC, 'This is an IV456')
+    server_obj = AES.new(server_hash, AES.MODE_CBC, 'This is an IV456')
+
+
+    data = client.recv(BUFFER_SIZE)
+    replacements = {
+            "isn't": "is",
+            "no": "yes",
+            "wrong": "correct",
+            "hello": "goodbye"
+    }
+    while data:
+        plaintext = client_obj.decrypt(data)
+        print("Interrupted Message: " + plaintext)
+
+        for key in replacements.keys():
+            plaintext = plaintext.replace(key, replacements[key])
+
+        server.send(server_obj.encrypt(padMessage(plaintext)))
+        data = client.recv(BUFFER_SIZE)
+
+
+def padMessage(text):
+    padding_len = 16 - len(text) % 16
+    text += '\0' * padding_len
+    return text
 
 
 if __name__ == "__main__":
